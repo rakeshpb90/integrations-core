@@ -109,27 +109,24 @@ def test_metric_normalization(check):
     assert (RATE, 'mongodb.foobar.intent_exclusiveps') == resolve_metric('foobar.w', metrics_to_collect)
     assert (GAUGE, 'mongodb.foobar.exclusive') == resolve_metric('foobar.W', metrics_to_collect)
 
-# def test_state_translation(self):
-#     """
-#     Check that resolving replset member state IDs match to names and descriptions properly.
-#     """
-#     # Initialize check
-#     config = {
-#         'instances': [self.MONGODB_CONFIG]
-#     }
-#     self.load_check(config)
-#
-#     self.assertEquals('STARTUP2', self.check.get_state_name(5))
-#     self.assertEquals('PRIMARY', self.check.get_state_name(1))
-#
-#     self.assertEquals('Starting Up', self.check.get_state_description(0))
-#     self.assertEquals('Recovering', self.check.get_state_description(3))
-#
-#     # Unknown states:
-#     self.assertEquals('UNKNOWN', self.check.get_state_name(500))
-#     unknown_desc = self.check.get_state_description(500)
-#     self.assertTrue(unknown_desc.find('500') != -1)
-#
+
+@pytest.mark.unit
+def test_state_translation(check):
+    """
+    Check that resolving replset member state IDs match to names and descriptions properly.
+    """
+    assert 'STARTUP2' == check.get_state_name(5)
+    assert 'PRIMARY' == check.get_state_name(1)
+
+    assert 'Starting Up' == check.get_state_description(0)
+    assert 'Recovering' == check.get_state_description(3)
+
+    # Unknown states:
+    assert 'UNKNOWN' == check.get_state_name(500)
+    unknown_desc = check.get_state_description(500)
+    assert unknown_desc.find('500') != -1
+
+
 # def test_server_uri_sanitization(self):
 #     # Initialize check
 #     config = {
