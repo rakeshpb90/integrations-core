@@ -13,6 +13,10 @@ from datadog_checks.mongo import MongoDb
 from . import common
 import mock
 
+log = logging.getLogger('test_mongo')
+
+RATE = MongoDb.rate
+GAUGE = MongoDb.gauge
 
 @pytest.mark.unit
 def test_build_metric_list(check):
@@ -45,68 +49,66 @@ def test_build_metric_list(check):
 
     # One correct option
     default_and_tcmalloc_metrics = build_metric_list(['tcmalloc'])
-    assert default_and_tcmalloc_metrics == len(DEFAULT_METRICS) + len(check.TCMALLOC_METRICS)
+
+    assert len(default_and_tcmalloc_metrics) == len(DEFAULT_METRICS) + len(check.TCMALLOC_METRICS)
 
     # One wrong and correct option
     default_and_tcmalloc_metrics = build_metric_list(['foobar', 'top'])
     assert len(default_and_tcmalloc_metrics) == len(DEFAULT_METRICS) + len(check.TOP_METRICS)
-    assert self.check.log.warning.call_count == 2
+    assert check.log.warning.call_count == 2
 
-# def test_metric_resolution(self):
-#     """
-#     Resolve metric names and types.
-#     """
-#     # Initialize check and tests
-#     config = {
-#         'instances': [self.MONGODB_CONFIG]
-#     }
-#     metrics_to_collect = {
-#         'foobar': (GAUGE, 'barfoo'),
-#         'foo.bar': (RATE, 'bar.foo'),
-#         'fOoBaR': GAUGE,
-#         'fOo.baR': RATE,
-#     }
-#     self.load_check(config)
-#     resolve_metric = self.check._resolve_metric
-#
-#     # Assert
-#
-#     # Priority to aliases when defined
-#     self.assertEquals((GAUGE, 'mongodb.barfoo'), resolve_metric('foobar', metrics_to_collect))
-#     self.assertEquals((RATE, 'mongodb.bar.foops'), resolve_metric('foo.bar', metrics_to_collect))  # noqa
-#     self.assertEquals((GAUGE, 'mongodb.qux.barfoo'), resolve_metric('foobar', metrics_to_collect, prefix="qux"))  # noqa
-#
-#     #  Resolve an alias when not defined
-#     self.assertEquals((GAUGE, 'mongodb.foobar'), resolve_metric('fOoBaR', metrics_to_collect))
-#     self.assertEquals((RATE, 'mongodb.foo.barps'), resolve_metric('fOo.baR', metrics_to_collect))  # noqa
-#     self.assertEquals((GAUGE, 'mongodb.qux.foobar'), resolve_metric('fOoBaR', metrics_to_collect, prefix="qux"))  # noqa
-#
-# def test_metric_normalization(self):
-#     """
-#     Metric names suffixed with `.R`, `.r`, `.W`, `.w` are renamed.
-#     """
-#     # Initialize check and tests
-#     config = {
-#         'instances': [self.MONGODB_CONFIG]
-#     }
-#     metrics_to_collect = {
-#         'foo.bar': GAUGE,
-#         'foobar.r': GAUGE,
-#         'foobar.R': RATE,
-#         'foobar.w': RATE,
-#         'foobar.W': GAUGE,
-#     }
-#     self.load_check(config)
-#     resolve_metric = self.check._resolve_metric
-#
-#     # Assert
-#     self.assertEquals((GAUGE, 'mongodb.foo.bar'), resolve_metric('foo.bar', metrics_to_collect))  # noqa
-#
-#     self.assertEquals((RATE, 'mongodb.foobar.sharedps'), resolve_metric('foobar.R', metrics_to_collect))  # noqa
-#     self.assertEquals((GAUGE, 'mongodb.foobar.intent_shared'), resolve_metric('foobar.r', metrics_to_collect))  # noqa
-#     self.assertEquals((RATE, 'mongodb.foobar.intent_exclusiveps'), resolve_metric('foobar.w', metrics_to_collect))  # noqa
-#     self.assertEquals((GAUGE, 'mongodb.foobar.exclusive'), resolve_metric('foobar.W', metrics_to_collect))  # noqa
-#
+
+@pytest.mark.unit
+def test_metric_resolution(check):
+    """
+    Resolve metric names and types.
+    """
+
+    metrics_to_collect = {
+        'foobar': (GAUGE, 'barfoo'),
+        'foo.bar': (RATE, 'bar.foo'),
+        'fOoBaR': GAUGE,
+        'fOo.baR': RATE,
+    }
+
+    resolve_metric = check._resolve_metric
+
+    # Assert
+
+    # Priority to aliases when defined
+    assert (GAUGE, 'mongodb.barfoo') == resolve_metric('foobar', metrics_to_collect)
+    assert (RATE, 'mongodb.bar.foops') == resolve_metric('foo.bar', metrics_to_collect)
+    assert (GAUGE, 'mongodb.qux.barfoo') == resolve_metric('foobar', metrics_to_collect, prefix="qux")
+
+    #  Resolve an alias when not defined
+    assert (GAUGE, 'mongodb.foobar') == resolve_metric('fOoBaR', metrics_to_collect)
+    assert (RATE, 'mongodb.foo.barps') == resolve_metric('fOo.baR', metrics_to_collect)
+    assert (GAUGE, 'mongodb.qux.foobar') == resolve_metric('fOoBaR', metrics_to_collect, prefix="qux")
+
+
+@pytest.mark.unit
+def test_metric_normalization(check):
+    """
+    Metric names suffixed with `.R`, `.r`, `.W`, `.w` are renamed.
+    """
+    # Initialize check and tests
+    metrics_to_collect = {
+        'foo.bar': GAUGE,
+        'foobar.r': GAUGE,
+        'foobar.R': RATE,
+        'foobar.w': RATE,
+        'foobar.W': GAUGE,
+    }
+    resolve_metric = check._resolve_metric
+
+    # Assert
+    assert (GAUGE, 'mongodb.foo.bar') == resolve_metric('foo.bar', metrics_to_collect)
+
+    assert (RATE, 'mongodb.foobar.sharedps') == resolve_metric('foobar.R', metrics_to_collect)
+    assert (GAUGE, 'mongodb.foobar.intent_shared') == resolve_metric('foobar.r', metrics_to_collect)
+    assert (RATE, 'mongodb.foobar.intent_exclusiveps') == resolve_metric('foobar.w', metrics_to_collect)
+    assert (GAUGE, 'mongodb.foobar.exclusive') == resolve_metric('foobar.W', metrics_to_collect)
+
 # def test_state_translation(self):
 #     """
 #     Check that resolving replset member state IDs match to names and descriptions properly.
