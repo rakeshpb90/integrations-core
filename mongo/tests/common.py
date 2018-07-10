@@ -1,7 +1,14 @@
+import os
+from datadog_checks.utils.common import get_docker_hostname
+
+HOST = get_docker_hostname()
 PORT1 = 47017
 PORT2 = 47018
 MAX_WAIT = 150
 
 MONGODB_CONFIG = {
-    'server': "mongodb://localhost:%s/test" % PORT1
+    'server': "mongodb://%s:%s/test" % (HOST, PORT1)
 }
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
