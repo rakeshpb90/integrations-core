@@ -2,10 +2,81 @@
 # All rights reserved
 # Licensed under a 3-clause BSD style license (see LICENSE)
 
+import datetime
 import mock
+import os
 import pytest
 
+import ldap3
+
 from datadog_checks.errors import CheckException
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def test_check(check, aggregator):
+    server_mock = ldap3.Server("fake_server")
+    conn_mock = ldap3.Connection(server_mock, client_strategy=ldap3.MOCK_SYNC, collect_usage=True)
+    # usage.last_received_time is not populated when using mock connection, let's set a value
+    conn_mock.usage.last_received_time = datetime.datetime.now()
+    conn_mock.strategy.entries_from_json(os.path.join(HERE, "fixtures", "monitor.json"))
+    instance = {
+        "url": "fake_server",
+        "custom_queries": [{
+            "name": "stats",
+            "search_base": "cn=statistics,cn=monitor",
+            "search_filter": "(!(cn=Statistics))",
+        }]
+    }
+    with mock.patch("datadog_checks.openldap.openldap.ldap3.Server", return_value=server_mock):
+        with mock.patch("datadog_checks.openldap.openldap.ldap3.Connection", return_value=conn_mock):
+            check.check(instance)
+    tags = ["url:fake_server"]
+    aggregator.assert_service_check("openldap.can_connect", check.OK, tags=tags)
+    aggregator.assert_metric("openldap.bind_time", tags=tags)
+    aggregator.assert_metric("openldap.connections.current", 1, tags=tags)
+    aggregator.assert_metric("openldap.connections.max_file_descriptors", 1024, tags=tags)
+    aggregator.assert_metric("openldap.connections.total", 3453, tags=tags)
+    aggregator.assert_metric("openldap.operations.completed.total", 41398, tags=tags)
+    aggregator.assert_metric("openldap.operations.initiated.total", 41399, tags=tags)
+    aggregator.assert_metric("openldap.operations.completed", 0, tags=tags + ["operation:abandon"])
+    aggregator.assert_metric("openldap.operations.initiated", 0, tags=tags + ["operation:abandon"])
+    aggregator.assert_metric("openldap.operations.completed", 0, tags=tags + ["operation:add"])
+    aggregator.assert_metric("openldap.operations.initiated", 0, tags=tags + ["operation:add"])
+    aggregator.assert_metric("openldap.operations.completed", 9734, tags=tags + ["operation:bind"])
+    aggregator.assert_metric("openldap.operations.initiated", 9734, tags=tags + ["operation:bind"])
+    aggregator.assert_metric("openldap.operations.completed", 0, tags=tags + ["operation:compare"])
+    aggregator.assert_metric("openldap.operations.initiated", 0, tags=tags + ["operation:compare"])
+    aggregator.assert_metric("openldap.operations.completed", 0, tags=tags + ["operation:delete"])
+    aggregator.assert_metric("openldap.operations.initiated", 0, tags=tags + ["operation:delete"])
+    aggregator.assert_metric("openldap.operations.completed", 0, tags=tags + ["operation:extended"])
+    aggregator.assert_metric("openldap.operations.initiated", 0, tags=tags + ["operation:extended"])
+    aggregator.assert_metric("openldap.operations.completed", 0, tags=tags + ["operation:modify"])
+    aggregator.assert_metric("openldap.operations.initiated", 0, tags=tags + ["operation:modify"])
+    aggregator.assert_metric("openldap.operations.completed", 0, tags=tags + ["operation:modrdn"])
+    aggregator.assert_metric("openldap.operations.initiated", 0, tags=tags + ["operation:modrdn"])
+    aggregator.assert_metric("openldap.operations.completed", 29212, tags=tags + ["operation:search"])
+    aggregator.assert_metric("openldap.operations.initiated", 29213, tags=tags + ["operation:search"])
+    aggregator.assert_metric("openldap.operations.completed", 2452, tags=tags + ["operation:unbind"])
+    aggregator.assert_metric("openldap.operations.initiated", 2452, tags=tags + ["operation:unbind"])
+    aggregator.assert_metric("openldap.statistics.bytes", 796449497, tags=tags)
+    aggregator.assert_metric("openldap.statistics.entries", 178382, tags=tags)
+    aggregator.assert_metric("openldap.statistics.pdu", 217327, tags=tags)
+    aggregator.assert_metric("openldap.statistics.referrals", 0, tags=tags)
+    aggregator.assert_metric("openldap.threads", 1, tags=tags + ["status:active"])
+    aggregator.assert_metric("openldap.threads", 1, tags=tags + ["status:backload"])
+    aggregator.assert_metric("openldap.threads", 3, tags=tags + ["status:open"])
+    aggregator.assert_metric("openldap.threads", 0, tags=tags + ["status:pending"])
+    aggregator.assert_metric("openldap.threads", 0, tags=tags + ["status:starting"])
+    aggregator.assert_metric("openldap.threads.max", 16, tags=tags)
+    aggregator.assert_metric("openldap.threads.max_pending", 0, tags=tags)
+    aggregator.assert_metric("openldap.uptime", 159182, tags=tags)
+    aggregator.assert_metric("openldap.waiter.read", 1, tags=tags)
+    aggregator.assert_metric("openldap.waiter.write", 0, tags=tags)
+    aggregator.assert_metric("openldap.query.duration", tags=tags + ["query:stats"])
+    aggregator.assert_metric("openldap.query.results", 4, tags=tags + ["query:stats"])
+    aggregator.assert_all_metrics_covered()
+
 
 @mock.patch("datadog_checks.openldap.openldap.os")
 @mock.patch("datadog_checks.openldap.openldap.ldap3.core.tls.Tls")
@@ -149,8 +220,8 @@ def test__get_instance_params(check):
     }
     assert check._get_instance_params(instance) == (url, None, None, ssl_params, [], ["url:ldaps://url"])
 
-@mock.patch("datadog_checks.openldap.openldap.ldap3")
-def test__perform_custom_queries(ldap3_mock, check):
+
+def test__perform_custom_queries(check):
     # Check name mandatory
     instance = {
         "url": "foo",
@@ -158,7 +229,7 @@ def test__perform_custom_queries(ldap3_mock, check):
     }
     log_mock = mock.MagicMock()
     check.log = log_mock
-    conn_mock = ldap3_mock.Connection()
+    conn_mock = mock.MagicMock()
     _, _, _, _, queries, tags = check._get_instance_params(instance)
     check._perform_custom_queries(conn_mock, queries, tags, instance)
     conn_mock.search.assert_not_called()  # No search performed
@@ -186,7 +257,7 @@ def test__perform_custom_queries(ldap3_mock, check):
     conn_mock.search.assert_not_called()  # No search performed
     log_mock.error.assert_called_once()  # Error logged
 
-    # Check query same username
+    # Check query rebind same username
     instance = {
         "url": "url",
         "username": "user",
@@ -196,8 +267,25 @@ def test__perform_custom_queries(ldap3_mock, check):
     log_mock.reset_mock()
     _, _, _, _, queries, tags = check._get_instance_params(instance)
     check._perform_custom_queries(conn_mock, queries, tags, instance)
-    conn_mock.rebind.assert_called_once_with(user="user", password="pass", authentication=ldap3_mock.SIMPLE)
+    conn_mock.rebind.assert_called_once_with(user="user", password="pass", authentication=ldap3.SIMPLE)
     conn_mock.search.assert_called_once_with("base", "filter", attributes=None)
+    log_mock.error.assert_not_called()  # No error logged
+
+    # Check query rebind different user
+    instance = {
+        "url": "url",
+        "username": "user",
+        "password": "pass",
+        "custom_queries": [{
+            "name": "name", "search_base": "base", "search_filter": "filter",
+            "username": "user2", "password": "pass2", "attributes": ["*"]
+        }]
+    }
+    conn_mock.reset_mock()
+    _, _, _, _, queries, tags = check._get_instance_params(instance)
+    check._perform_custom_queries(conn_mock, queries, tags, instance)
+    conn_mock.rebind.assert_called_once_with(user="user2", password="pass2", authentication=ldap3.SIMPLE)
+    conn_mock.search.assert_called_once_with("base", "filter", attributes=["*"])
     log_mock.error.assert_not_called()  # No error logged
 
 

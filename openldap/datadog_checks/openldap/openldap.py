@@ -13,7 +13,7 @@ from datadog_checks.config import is_affirmative
 
 SEARCH_BASE = "cn=Monitor"
 SEARCH_FILTER = "(objectClass=*)"
-ATTRS = "+"
+ATTRS = ["*", "+"]
 
 METRIC_PREFIX = "openldap"
 
@@ -185,8 +185,9 @@ class OpenLDAP(AgentCheck):
                 continue
 
             query_time = self._get_query_time(conn)
-            self.gauge("{}.query.duration", query_time, tags=tags + ["query:{}".format(name)])
-            self.gauge("{}.query.results", len(conn.entries), tags=tags + ["query:{}".format(name)])
+            results = len(conn.entries)
+            self.gauge("{}.query.duration".format(METRIC_PREFIX), query_time, tags=tags + ["query:{}".format(name)])
+            self.gauge("{}.query.results".format(METRIC_PREFIX), results, tags=tags + ["query:{}".format(name)])
 
     def _handle_connections_entry(self, entry, tags):
         cn = self._extract_common_name(entry.entry_dn)
@@ -224,7 +225,7 @@ class OpenLDAP(AgentCheck):
         if cn in ["max", "max_pending"]:
             self.gauge("{}.threads.{}".format(METRIC_PREFIX, cn), value, tags=tags)
         elif cn in ["open", "starting", "active", "pending", "backload"]:
-            self.gauge("{}.threads".format(METRIC_PREFIX), value, tags=["status:{}".format(cn)])
+            self.gauge("{}.threads".format(METRIC_PREFIX), value, tags=tags + ["status:{}".format(cn)])
 
     def _handle_time_entry(self, entry, tags):
         cn = self._extract_common_name(entry.entry_dn)

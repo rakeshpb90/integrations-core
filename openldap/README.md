@@ -94,7 +94,7 @@ See the [sample openldap.yaml][2] for all available configuration options.
     [...]
 
     openldap
-    -------
+    --------
       - instance #0 [OK]
       - Collected 26 metrics, 0 events & 1 service check
 
@@ -117,11 +117,13 @@ The openldap check does not include any event at this time.
 
 ### Service Checks
 
-*
+**openldap.can_connect**
+
+Returns `CRITICAL` if the check cannot bind to the monitor backend, `OK` otherwise.
 
 ## Troubleshooting
 
-[...]
+Need help? Contact [Datadog Support][7].
 
 ## Development
 
@@ -134,3 +136,4 @@ for more details about how to test and develop Agent based integrations.
 [4]: https://docs.datadoghq.com/agent/faq/agent-commands/#agent-status-and-information
 [5]: https://github.com/DataDog/integrations-core/blob/master/openldap/metadata.csv
 [6]: https://docs.datadoghq.com/developers/
+[7]: https://docs.datadoghq.com/help/
